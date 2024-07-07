@@ -2,18 +2,19 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net"
+
 	"github.com/fatih/color"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+
 	"github.com/neracastle/chat-server/internal/config"
 	chatsrv "github.com/neracastle/chat-server/internal/grpc-server"
 	chatdesc "github.com/neracastle/chat-server/pkg/chat_v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-	"log"
-	"net"
 )
 
 func main() {
-
 	cfg := config.MustLoad()
 
 	conn, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))
