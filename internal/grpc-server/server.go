@@ -2,10 +2,12 @@ package grpc_server
 
 import (
 	"context"
-	"github.com/brianvoe/gofakeit"
-	userdesc "github.com/neracastle/chat-server/pkg/chat_v1"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"log"
+
+	"github.com/brianvoe/gofakeit"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	userdesc "github.com/neracastle/chat-server/pkg/chat_v1"
 )
 
 type Server struct {
