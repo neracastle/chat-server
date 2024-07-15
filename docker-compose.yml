@@ -1,0 +1,48 @@
+version: '3'
+services:
+  pg:
+    image: postgres:15-alpine3.19
+    environment:
+      - "POSTGRES_DB=${PG_DBNAME}"
+      - "POSTGRES_USER=${PG_USER}"
+      - "POSTGRES_PASSWORD=${PG_PWD}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg:/var/lib/postgresql/data
+
+  migrator:
+    depends_on:
+      - pg
+    build:
+      context: .
+      dockerfile: migrations/Dockerfile
+    restart: on-failure
+    environment:
+      - "PG_HOST=pg"
+      - "PG_PORT=5432"
+      - "PG_USER=${PG_USER}"
+      - "PG_PWD=${PG_PWD}"
+      - "PG_DBNAME=${PG_DBNAME}"
+
+  chat-service:
+    #depends_on:
+    #  - pg
+    build:
+      context: .
+    container_name: chat-service
+    environment:
+      - "ENV=local"
+      - "GRPC_PORT=${GRPC_PORT}"
+      - "PG_HOST=docker.for.mac.localhost"
+      - "PG_PORT=5432"
+      - "PG_USER=${PG_USER}"
+      - "PG_PWD=${PG_PWD}"
+      - "PG_DBNAME=${PG_DBNAME}"
+    ports:
+      - "${GRPC_PORT}:${GRPC_PORT}"
+    restart: always
+
+volumes:
+  pg:
+    driver: local

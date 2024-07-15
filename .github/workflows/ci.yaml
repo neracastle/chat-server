@@ -1,0 +1,102 @@
+name: Build image
+
+on:
+  push:
+
+env:
+  REGISTRY: ghcr.io/neracastle
+  IMAGE_NAME: chat-service
+  GRPC_PORT: 50502
+  PG_HOST: host.docker.internal
+  PG_PORT: 5432
+  PG_USER: ${{ secrets.PG_USER }}
+  PG_PWD: ${{ secrets.PG_PWD }}
+  PG_DBNAME: ${{ secrets.PG_DBNAME }}
+
+jobs:
+  linter_and_test:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+          cache: false
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
+          args: --timeout=30m --config=./.golangci.pipeline.yaml --issues-exit-code=0
+
+      - name: Test
+        run: go test -v ./...
+
+  build:
+    runs-on: ubuntu-latest
+    needs: linter_and_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: type=sha
+
+      - name: Build docker image
+        timeout-minutes: 7
+        id: build
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to Selectel
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSHKEY }}
+          envs: IMAGE_NAME,REGISTRY,GITHUB_SHA,GRPC_PORT,PG_HOST,PG_PORT,PG_USER,PG_PWD,PG_DBNAME
+          script: |
+            TAG_NAME=$(echo $GITHUB_SHA | head -c7)
+            IMAGE=$REGISTRY/$IMAGE_NAME:sha-$TAG_NAME
+            echo $IMAGE
+            docker stop chat-service
+            docker rm chat-service
+            
+            docker run -d -p $GRPC_PORT:$GRPC_PORT \
+            --add-host=host.docker.internal:host-gateway \
+            --env ENV=local \
+            --env GRPC_PORT=$GRPC_PORT \
+            --env PG_HOST=$PG_HOST \
+            --env PG_PORT=$PG_PORT \
+            --env PG_USER=$PG_USER \
+            --env PG_PWD=$PG_PWD \
+            --env PG_DBNAME=$PG_DBNAME \
+            --name chat-service -t $IMAGE
