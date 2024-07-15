@@ -6,6 +6,7 @@ on:
 env:
   REGISTRY: ghcr.io/neracastle
   IMAGE_NAME: chat-service
+  IMAGE_MIGRATION_NAME: chat-migrations
   GRPC_PORT: 50502
   PG_HOST: host.docker.internal
   PG_PORT: 5432
@@ -52,7 +53,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: type=sha
 
-      - name: Build docker image
+      - name: Build service image
         timeout-minutes: 7
         id: build
         uses: docker/build-push-action@v4
@@ -60,6 +61,23 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Docker migration meta
+        id: meta-migration
+        uses: docker/metadata-action@v3
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_MIGRATION_NAME }}
+          tags: type=sha
+
+      - name: Build migrations image
+        timeout-minutes: 7
+        id: build-migrations
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: migrations/Dockerfile
+          push: true
+          tags: ${{ steps.meta-migration.outputs.tags }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -82,13 +100,24 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSHKEY }}
-          envs: IMAGE_NAME,REGISTRY,GITHUB_SHA,GRPC_PORT,PG_HOST,PG_PORT,PG_USER,PG_PWD,PG_DBNAME
+          envs: IMAGE_NAME,IMAGE_MIGRATION_NAME,REGISTRY,GITHUB_SHA,GRPC_PORT,PG_HOST,PG_PORT,PG_USER,PG_PWD,PG_DBNAME
           script: |
             TAG_NAME=$(echo $GITHUB_SHA | head -c7)
             IMAGE=$REGISTRY/$IMAGE_NAME:sha-$TAG_NAME
+            IMAGE_MIGRATION=$REGISTRY/$IMAGE_MIGRATION_NAME:sha-$TAG_NAME
+            echo $IMAGE_MIGRATION
             echo $IMAGE
             docker stop chat-service
-            docker rm chat-service
+            docker rm chat-service chat-migration
+            
+            docker run -d --name chat-migration \
+            --add-host=host.docker.internal:host-gateway \
+            --env PG_HOST=$PG_HOST \
+            --env PG_PORT=$PG_PORT \
+            --env PG_USER=$PG_USER \
+            --env PG_PWD=$PG_PWD \
+            --env PG_DBNAME=$PG_DBNAME \
+            -t $IMAGE_MIGRATION
             
             docker run -d -p $GRPC_PORT:$GRPC_PORT \
             --add-host=host.docker.internal:host-gateway \
