@@ -10,7 +10,7 @@ CREATE TABLE chat.chat_users
 (
     chat_id bigint references chat.chats(id),
     user_id bigint not null,
-    user_name varchar(128) not null
+    user_name text not null
 );
 -- +goose StatementEnd
 

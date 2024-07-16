@@ -7,7 +7,7 @@ WORKDIR /neracastle/chat/src
 RUN go mod download
 RUN go build -o ./bin/chat_server cmd/grpc-server/main.go
 
-FROM alpine:latest
+FROM alpine:3.19.2
 WORKDIR /root/
 COPY --from=builder /neracastle/chat/src/bin/chat_server .
 

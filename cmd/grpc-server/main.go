@@ -29,10 +29,6 @@ func main() {
 	//нижележащее в дальнейшем вынесем в di и слои
 	logger := setupLogger(cfg.Env)
 
-	logger.Debug("connecting to postgres",
-		slog.String("Host", cfg.Postgres.Host),
-		slog.Int("Port", cfg.Postgres.Port))
-
 	ctx := context.Background()
 	connect, err := pgx.Connect(ctx, cfg.Postgres.DSN())
 	if err != nil {
@@ -45,13 +41,7 @@ func main() {
 		log.Fatalf("failed ping to pg: %v", err)
 	}
 
-	logger.Debug("connected to postgres",
-		slog.String("Host", cfg.Postgres.Host),
-		slog.Int("Port", cfg.Postgres.Port))
-
-	logger.Debug("starting grpc server",
-		slog.String("Host", cfg.GRPC.Host),
-		slog.Int("Port", cfg.GRPC.Port))
+	logger.Debug("connected to postgres", slog.String("Host", cfg.Postgres.Host), slog.Int("Port", cfg.Postgres.Port))
 
 	conn, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.GRPC.Host, cfg.GRPC.Port))
 
@@ -77,10 +67,8 @@ func setupLogger(env string) *slog.Logger {
 	switch env {
 	case envLocal:
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		break
 	case envDev:
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-		break
 	case envProd:
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
