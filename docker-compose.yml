@@ -1,7 +1,7 @@
-version: '3'
 services:
   pg:
     image: postgres:15-alpine3.19
+    container_name: pg
     environment:
       - "POSTGRES_DB=${PG_DBNAME}"
       - "POSTGRES_USER=${PG_USER}"
@@ -10,10 +10,14 @@ services:
       - "5432:5432"
     volumes:
       - pg:/var/lib/postgresql/data
+    networks:
+      - shared
 
-  migrator:
+  chat-migrator:
+    container_name: chat-migrator
     depends_on:
       - pg
+    image: "ghcr.io/neracastle/chat-migrations:sha-${TAG_NAME}"
     build:
       context: .
       dockerfile: migrations/Dockerfile
@@ -24,17 +28,25 @@ services:
       - "PG_USER=${PG_USER}"
       - "PG_PWD=${PG_PWD}"
       - "PG_DBNAME=${PG_DBNAME}"
+    networks:
+      - shared
+    links:
+      - pg
 
   chat-service:
-    #depends_on:
-    #  - pg
+    depends_on:
+      pg:
+        condition: service_started
+      chat-migrator:
+          condition: service_completed_successfully
+    image: "ghcr.io/neracastle/chat-service:sha-${TAG_NAME}"
     build:
       context: .
     container_name: chat-service
     environment:
       - "ENV=local"
       - "GRPC_PORT=${GRPC_PORT}"
-      - "PG_HOST=docker.for.mac.localhost"
+      - "PG_HOST=pg"
       - "PG_PORT=5432"
       - "PG_USER=${PG_USER}"
       - "PG_PWD=${PG_PWD}"
@@ -42,7 +54,15 @@ services:
     ports:
       - "${GRPC_PORT}:${GRPC_PORT}"
     restart: always
+    networks:
+      - shared
+    links:
+      - pg
 
 volumes:
   pg:
     driver: local
+
+networks:
+  shared:
+    name: service-net
