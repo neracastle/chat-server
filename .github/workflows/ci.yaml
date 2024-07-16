@@ -103,7 +103,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSHKEY }}
           source: "docker-compose.yml"
-          target: /root/docker-compose-chat.yml
+          target: /root/chat
 
       - name: Deploy to Selectel
         uses: appleboy/ssh-action@v1.0.3
@@ -115,4 +115,4 @@ jobs:
           script: |
             export TAG_NAME=$(echo $GITHUB_SHA | head -c7)
             docker login -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} $REGISTRY
-            docker compose -f docker-compose-chat.yml up --remove-orphans -d
+            docker compose -f chat/docker-compose.yml up --remove-orphans -d
