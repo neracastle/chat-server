@@ -3,7 +3,7 @@ package chat
 import "time"
 
 type Chat struct {
-	Id        int32
+	Id        int64
 	UserIds   []int64
 	CreatedAt time.Time
 }

@@ -3,9 +3,9 @@ package grpc_server
 import (
 	"context"
 
+	"github.com/neracastle/go-libs/pkg/sys/logger"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/neracastle/chat-server/internal/app/logger"
 	userdesc "github.com/neracastle/chat-server/pkg/chat_v1"
 )
 

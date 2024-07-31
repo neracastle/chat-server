@@ -3,12 +3,11 @@ package services
 import (
 	"context"
 
+	"github.com/neracastle/go-libs/pkg/sys/logger"
 	"golang.org/x/exp/slog"
-
-	"github.com/neracastle/chat-server/internal/app/logger"
 )
 
-func (s *Service) Delete(ctx context.Context, chatId int32) error {
+func (s *Service) Delete(ctx context.Context, chatId int64) error {
 	log := logger.GetLogger(ctx)
 	err := s.chatRepository.Delete(ctx, chatId)
 

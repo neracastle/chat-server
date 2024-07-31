@@ -3,12 +3,12 @@
 CREATE SCHEMA chat;
 CREATE TABLE chat.chats
 (
-    id bigserial primary key,
+    id integer primary key,
     created_at timestamp(0) default CURRENT_TIMESTAMP
 );
 CREATE TABLE chat.chat_users
 (
-    chat_id bigint references chat.chats(id),
+    chat_id int references chat.chats(id),
     user_id bigint not null,
     user_name text not null
 );
