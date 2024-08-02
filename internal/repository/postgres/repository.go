@@ -6,17 +6,19 @@ import (
 	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/neracastle/go-libs/pkg/db"
 
-	db "github.com/neracastle/chat-server/internal/client"
 	domain "github.com/neracastle/chat-server/internal/domain/chat"
 	"github.com/neracastle/chat-server/internal/repository"
 )
 
-const createdColumn = "created_at"
-const idColumn = "id"
-const usersChatIdColumn = "chat_id"
-const usersUserIdColumn = "user_id"
-const usersUserNameColumn = "user_name"
+const (
+	createdColumn       = "created_at"
+	idColumn            = "id"
+	usersChatIdColumn   = "chat_id"
+	usersUserIdColumn   = "user_id"
+	usersUserNameColumn = "user_name"
+)
 
 var _ repository.Repository = (*repo)(nil)
 
@@ -69,7 +71,7 @@ func (r *repo) Save(ctx context.Context, chat *domain.Chat) error {
 	return err
 }
 
-func (r *repo) Delete(ctx context.Context, id int32) error {
+func (r *repo) Delete(ctx context.Context, id int64) error {
 	err := r.conn.DB().ReadCommitted(ctx, func(ctx context.Context) error {
 		psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 		sql, args, err := psql.Delete("chat.chat_users").
@@ -80,7 +82,7 @@ func (r *repo) Delete(ctx context.Context, id int32) error {
 		}
 
 		q := db.Query{Name: "DeleteChatUsers", QueryRaw: sql}
-		_, err = r.conn.DB().Exec(ctx, q, args)
+		_, err = r.conn.DB().Exec(ctx, q, args...)
 		if err != nil {
 			return err
 		}
@@ -93,7 +95,7 @@ func (r *repo) Delete(ctx context.Context, id int32) error {
 		}
 
 		q = db.Query{Name: "Delete", QueryRaw: sql}
-		_, err = r.conn.DB().Exec(ctx, q, args)
+		_, err = r.conn.DB().Exec(ctx, q, args...)
 
 		return err
 	})

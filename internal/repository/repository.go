@@ -8,5 +8,5 @@ import (
 
 type Repository interface {
 	Save(context.Context, *domain.Chat) error
-	Delete(ctx context.Context, id int32) error
+	Delete(ctx context.Context, id int64) error
 }

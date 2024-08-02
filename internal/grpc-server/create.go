@@ -3,7 +3,8 @@ package grpc_server
 import (
 	"context"
 
-	"github.com/neracastle/chat-server/internal/app/logger"
+	"github.com/neracastle/go-libs/pkg/sys/logger"
+
 	"github.com/neracastle/chat-server/internal/services/models"
 	userdesc "github.com/neracastle/chat-server/pkg/chat_v1"
 )

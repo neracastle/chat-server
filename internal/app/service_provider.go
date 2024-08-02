@@ -4,8 +4,10 @@ import (
 	"context"
 	"log"
 
-	db "github.com/neracastle/chat-server/internal/client"
-	"github.com/neracastle/chat-server/internal/client/pg"
+	"github.com/neracastle/go-libs/pkg/closer"
+	"github.com/neracastle/go-libs/pkg/db"
+	"github.com/neracastle/go-libs/pkg/db/pg"
+
 	"github.com/neracastle/chat-server/internal/config"
 	"github.com/neracastle/chat-server/internal/repository"
 	"github.com/neracastle/chat-server/internal/repository/postgres"
@@ -45,6 +47,7 @@ func (sp *serviceProvider) DbClient(ctx context.Context) db.Client {
 		}
 
 		sp.dbc = client
+		closer.Add(sp.dbc.Close)
 	}
 
 	return sp.dbc
