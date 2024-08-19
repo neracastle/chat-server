@@ -15,6 +15,9 @@ type Config struct {
 	Env string `yaml:"env" env:"ENV" env-required:"true"`
 	GRPC
 	Postgres
+	SecretKey       string `yaml:"secret_key" env:"JWT_SECRET_KEY" env-required:"true"`
+	AuthServiceAddr string `yaml:"auth_service_addr" env:"AUTH_SERVICE_ADDR" env-default:"localhost:50501"`
+	Trace
 }
 
 // GRPC настройки grpc сервера
@@ -35,6 +38,12 @@ type Postgres struct {
 // DSN генерирует строку подключения
 func (p Postgres) DSN() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", p.Host, p.Port, p.User, p.Password, p.Dbname)
+}
+
+// Trace настройки трейсинга
+type Trace struct {
+	BatchTimeout      int    `yaml:"batch_timeout" env:"TRACE_BATCH_TIMEOUT" env-default:"1"`
+	JaegerGRPCAddress string `yaml:"jaeger_grpc_address" env:"TRACE_JAEGER_GRPC_ADDRESS" env-default:"localhost:4317"`
 }
 
 // MustLoad загружает конфиг из окружения/файла. Фаталится если не получится
