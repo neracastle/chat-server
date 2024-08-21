@@ -7,8 +7,12 @@ import (
 	"github.com/neracastle/go-libs/pkg/closer"
 	"github.com/neracastle/go-libs/pkg/db"
 	"github.com/neracastle/go-libs/pkg/db/pg"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/neracastle/chat-server/internal/config"
+	grpc_client "github.com/neracastle/chat-server/internal/grpc-client"
 	"github.com/neracastle/chat-server/internal/repository"
 	"github.com/neracastle/chat-server/internal/repository/postgres"
 	"github.com/neracastle/chat-server/internal/services"
@@ -19,6 +23,7 @@ type serviceProvider struct {
 	chatService    *services.Service
 	chatRepository repository.Repository
 	dbc            db.Client
+	authService    *grpc.ClientConn
 }
 
 func newServiceProvider() *serviceProvider {
@@ -63,8 +68,26 @@ func (sp *serviceProvider) ChatRepository(ctx context.Context) repository.Reposi
 
 func (sp *serviceProvider) ChatService(ctx context.Context) *services.Service {
 	if sp.chatService == nil {
-		sp.chatService = services.NewService(sp.ChatRepository(ctx))
+		sp.chatService = services.NewService(
+			sp.ChatRepository(ctx),
+			grpc_client.NewAuth(sp.AuthService(ctx)),
+		)
 	}
 
 	return sp.chatService
+}
+
+func (sp *serviceProvider) AuthService(_ context.Context) *grpc.ClientConn {
+	if sp.authService == nil {
+		cl, err := grpc.NewClient(sp.Config().AuthServiceAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
+		if err != nil {
+			log.Fatalf("failed to connect to auth service: %v", err)
+		}
+
+		sp.authService = cl
+	}
+
+	return sp.authService
 }

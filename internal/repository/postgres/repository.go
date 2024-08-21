@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/neracastle/go-libs/pkg/db"
@@ -13,11 +12,10 @@ import (
 )
 
 const (
-	createdColumn       = "created_at"
-	idColumn            = "id"
-	usersChatIdColumn   = "chat_id"
-	usersUserIdColumn   = "user_id"
-	usersUserNameColumn = "user_name"
+	createdColumn     = "created_at"
+	idColumn          = "id"
+	usersChatIdColumn = "chat_id"
+	usersUserIdColumn = "user_id"
 )
 
 var _ repository.Repository = (*repo)(nil)
@@ -51,10 +49,10 @@ func (r *repo) Save(ctx context.Context, chat *domain.Chat) error {
 		}
 
 		psql := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-		insertQuery := psql.Insert("chat.chat_users").Columns(usersChatIdColumn, usersUserIdColumn, usersUserNameColumn)
+		insertQuery := psql.Insert("chat.chat_users").Columns(usersChatIdColumn, usersUserIdColumn)
 
-		for idx, userId := range chat.UserIds {
-			insertQuery = insertQuery.Values(chat.Id, userId, "U"+strconv.Itoa(idx))
+		for _, userId := range chat.UserIds {
+			insertQuery = insertQuery.Values(chat.Id, userId)
 		}
 
 		query, args, err := insertQuery.ToSql()
