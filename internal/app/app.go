@@ -2,14 +2,18 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"time"
 
 	auth_interceptors "github.com/neracastle/auth/pkg/user_v1/auth/grpc-interceptors"
 	"github.com/neracastle/go-libs/pkg/closer"
 	"github.com/neracastle/go-libs/pkg/sys/logger"
+	"github.com/neracastle/go-libs/pkg/sys/tracer"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -24,14 +28,14 @@ import (
 
 	grpc_server "github.com/neracastle/chat-server/internal/grpc-server"
 	"github.com/neracastle/chat-server/internal/grpc-server/interceptors"
-	"github.com/neracastle/chat-server/internal/tracer"
 	"github.com/neracastle/chat-server/pkg/chat_v1"
 )
 
 type App struct {
-	grpc          *grpc.Server
-	srvProvider   *serviceProvider
-	traceExporter *otlptrace.Exporter
+	grpc             *grpc.Server
+	srvProvider      *serviceProvider
+	traceExporter    *otlptrace.Exporter
+	prometheusServer *http.Server
 }
 
 func NewApp(ctx context.Context) *App {
@@ -42,28 +46,35 @@ func NewApp(ctx context.Context) *App {
 }
 
 func (a *App) init(ctx context.Context) {
-	lg := logger.SetupLogger(a.srvProvider.Config().Env)
+	lg := logger.SetupLogger(logger.Env(a.srvProvider.Config().Env))
 	a.grpc = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.StreamInterceptor(interceptors.NewStreamAccessInterceptor([]string{
+			chat_v1.ChatV1_Connect_FullMethodName,
+		}, a.srvProvider.Config().SecretKey)),
 		grpc.ChainUnaryInterceptor(
 			interceptors.NewLoggerInterceptor(lg),
 			auth_interceptors.NewAccessInterceptor([]string{
 				chat_v1.ChatV1_Create_FullMethodName,
+				chat_v1.ChatV1_SendMessage_FullMethodName,
 				chat_v1.ChatV1_Delete_FullMethodName,
 			}, a.srvProvider.Config().SecretKey),
 		),
 	)
 
 	reflection.Register(a.grpc)
-	chat_v1.RegisterChatV1Server(a.grpc, grpc_server.NewServer(lg, a.srvProvider.ChatService(ctx)))
+	chat_v1.RegisterChatV1Server(a.grpc, grpc_server.NewServer(
+		a.srvProvider.ChatService(ctx),
+		a.srvProvider.Config().ChatGarbageCycle,
+		a.srvProvider.Config().ChatExpired))
 }
 
 func (a *App) initTracing(ctx context.Context, serviceName string) {
 	//экспортер в jaeger
 	exporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint(a.srvProvider.Config().Trace.JaegerGRPCAddress))
+		otlptracegrpc.WithEndpoint(a.srvProvider.Config().Trace.ExporterGRPCAddress))
 	if err != nil {
 		log.Fatalf("failed to create trace exporter: %v", err)
 	}
@@ -96,12 +107,12 @@ func (a *App) Start() error {
 		closer.Wait()
 	}()
 
-	conn, err := net.Listen("tcp", fmt.Sprintf("%s:%d", a.srvProvider.Config().GRPC.Host, a.srvProvider.Config().GRPC.Port))
+	conn, err := net.Listen("tcp", fmt.Sprintf("%s", a.srvProvider.Config().GRPC.Address()))
 	if err != nil {
 		return err
 	}
 
-	log.Printf("ChatAPI service started on %s:%d\n", a.srvProvider.Config().GRPC.Host, a.srvProvider.Config().GRPC.Port)
+	log.Printf("ChatAPI service started on %s\n", a.srvProvider.Config().GRPC.Address())
 
 	closer.Add(func() error {
 		a.grpc.GracefulStop()
@@ -109,6 +120,27 @@ func (a *App) Start() error {
 	})
 
 	if err = a.grpc.Serve(conn); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// StartPrometheusServer запускает сервер prometheus
+func (a *App) StartPrometheusServer() error {
+	log.Printf("Prometheus server started on %s\n", a.srvProvider.Config().Prometheus.Address())
+
+	if a.prometheusServer == nil {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+
+		a.prometheusServer = &http.Server{
+			Addr:    a.srvProvider.Config().Prometheus.Address(),
+			Handler: mux,
+		}
+	}
+
+	if err := a.prometheusServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 

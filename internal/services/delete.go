@@ -6,11 +6,10 @@ import (
 
 	"github.com/neracastle/auth/pkg/user_v1/auth"
 	"github.com/neracastle/go-libs/pkg/sys/logger"
+	"github.com/neracastle/go-libs/pkg/sys/tracer"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/exp/slog"
-
-	"github.com/neracastle/chat-server/internal/tracer"
 )
 
 func (s *Service) Delete(ctx context.Context, chatId int64) error {
