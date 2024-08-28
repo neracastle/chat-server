@@ -4,6 +4,7 @@ import (
 	"github.com/neracastle/auth/pkg/user_v1/auth"
 	syserr "github.com/neracastle/go-libs/pkg/sys/error"
 
+	"github.com/neracastle/chat-server/internal/services/models"
 	userdesc "github.com/neracastle/chat-server/pkg/chat_v1"
 )
 
@@ -17,6 +18,11 @@ func (s *Server) Connect(req *userdesc.ConnectRequest, stream userdesc.ChatV1_Co
 	}
 
 	tokenUser := auth.UserFromContext(stream.Context())
+	err := s.chatService.Connect(stream.Context(), models.Connect{ChatId: req.GetChatId(), UserId: tokenUser.ID})
+	if err != nil {
+		return err
+	}
+
 	existChat.Connect(tokenUser.ID, stream)
 	s.metrics.IncreaseClients()
 	for {
