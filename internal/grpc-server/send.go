@@ -2,18 +2,31 @@ package grpc_server
 
 import (
 	"context"
-	"log"
+	"time"
 
+	"github.com/neracastle/auth/pkg/user_v1/auth"
+	syserr "github.com/neracastle/go-libs/pkg/sys/error"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	userdesc "github.com/neracastle/chat-server/pkg/chat_v1"
+	chatdesc "github.com/neracastle/chat-server/pkg/chat_v1"
 )
 
 // SendMessage отправляет сообщение в чат
-func (s *Server) SendMessage(ctx context.Context, req *userdesc.SendMessageRequest) (*emptypb.Empty, error) {
-	log.Printf("called SendMessage method with req: %v", req)
+func (s *Server) SendMessage(ctx context.Context, req *chatdesc.SendMessageRequest) (*emptypb.Empty, error) {
+	s.m.RLock()
+	existChat, ok := s.connectedChats[req.GetChatId()]
+	s.m.RUnlock()
 
-	//пока неясно надо ли хранить сообщения в базе или же просто обмен ими будет идти через кафку
+	if ok {
+		tokenUser := auth.UserFromContext(ctx)
+		existChat.AddMessage(&chatdesc.Message{
+			From:      tokenUser.ID,
+			Text:      req.GetText(),
+			Timestamp: timestamppb.New(time.Now()),
+		})
+		return &emptypb.Empty{}, nil
+	}
 
-	return &emptypb.Empty{}, nil
+	return nil, syserr.New("Чат не найден", syserr.NotFound)
 }

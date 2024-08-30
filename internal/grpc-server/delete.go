@@ -10,6 +10,8 @@ import (
 
 // Delete удаляет чат
 func (s *Server) Delete(ctx context.Context, req *userdesc.DeleteRequest) (*emptypb.Empty, error) {
+	s.CloseChatByID(req.GetId())
+
 	err := s.chatService.Delete(ctx, req.GetId())
 	if err != nil {
 		return nil, err
